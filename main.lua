@@ -92,10 +92,7 @@ function love.load()
         red = "#e84a99",
         green = "#7fe84a",
         white = "#ffffff",
-        bg = "#747d47",
-        warn = "#e8ac4a",
-        danger = "#e84a4a",
-        success = "#52b63a",
+        bg = "#747d47"
     }
 
     gooi.desktopMode()
@@ -110,15 +107,23 @@ function love.load()
         y = 0,
         w = 100,
         h = 40
-    }):bg(colors["danger"])
+    }):danger()
+    btnQuit = gooi.newButton({
+        text = "Quit",
+        x = 0,
+        y = 0,
+        w = 80,
+        h = 40
+    }):danger()
     btnSubmit = gooi.newButton({
         text = "Start",
         x = 0,
         y = 0,
         w = 100,
         h = 40
-    }):bg(colors["success"])
+    }):success()
 
+    toolbar:add(btnQuit, "t-l")
     toolbar:add(btnReset, "t-l")
     toolbar:add(btnSubmit, "t-r")
 
@@ -141,6 +146,16 @@ function love.load()
     grid:add(total1, "7,1")
     grid:add(total2, "7,2")
 
+    btnQuit:onRelease(
+        function()
+            gooi.confirm({
+                text = "Sure?",
+                ok = function()
+                    quit()
+                end
+            })
+        end
+    )
     btnReset:onRelease(
         function()
             gooi.confirm({
@@ -148,7 +163,7 @@ function love.load()
                 ok = function()
                     CounterState.status = COUNTER_OFF
                     btnSubmit:setText("Start")
-                    btnSubmit:bg(colors["success"])
+                    btnSubmit:success()
                     CounterState.player = nil
                     Players.Red:reset()
                     Players.Blue:reset()
@@ -163,14 +178,14 @@ function love.load()
             if CounterState.status == COUNTER_ON then
                 CounterState.status = COUNTER_PAUSED
                 btnSubmit:setText("Resume")
-                btnSubmit:bg(colors["warn"])
+                btnSubmit:warning()
             elseif CounterState.status == COUNTER_PAUSED then
                 CounterState.status = COUNTER_ON
                 btnSubmit:setText("Pause")
-                btnSubmit:bg(colors["warn"])
+                btnSubmit:warning()
             elseif CounterState.status == COUNTER_OFF then
                 btnSubmit:setText("Pause")
-                btnSubmit:bg(colors["warn"])
+                btnSubmit:warning()
                 gooi.confirm({
                     text = "Who starts?",
                     cancel = function()
