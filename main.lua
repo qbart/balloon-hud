@@ -73,11 +73,9 @@ function showUI(visible)
     if visible then
         if CounterState.status == COUNTER_PAUSED or
             CounterState.status == COUNTER_OFF then
-            btnStart:setVisible(true)
-            btnPause:setVisible(false)
+            btnStart.image = images.btnStart
         else
-            btnStart:setVisible(false)
-            btnPause:setVisible(true)
+            btnStart.image = images.btnPause
         end
     end
 end
@@ -104,25 +102,26 @@ function love.load()
         blue = "#29aae2",
         red = "#e84a99",
         green = "#7fe84a",
-        white = "#ffffff",
-        bg = "#747d47"
+        white = "#ffffff"
     }
 
-    toolbar = gooi.newPanel({x = 0, y = 0, w = 800, h = 80, layout = "game"})
+    images = {}
+    images.btnStart = love.graphics.newImage("data/button_start.png")
+    images.btnPause = love.graphics.newImage("data/button_pause.png")
 
-    btnReset = gooi.newImgButton({image = love.graphics.newImage("data/button_reset.png")})
-    btnQuit = gooi.newImgButton({image = love.graphics.newImage("data/button_quit.png")})
-    btnStart = gooi.newImgButton({image = love.graphics.newImage("data/button_start.png")})
-    btnPause = gooi.newImgButton({image = love.graphics.newImage("data/button_pause.png")})
+    toolbar = gooi.newPanel({x = 0, y = 0, w = 800, h = 100, layout = "game"})
+    toolbarChoosePlayer = gooi.newPanel({x = 0, y = 200, w = 800, h = 100, layout = "grid 1x4"})
+    toolbarChoosePlayer:setVisible(false)
+    toolbarSettings = gooi.newPanel({x = 0, y = 200, w = 800, h = 100, layout = "grid 1x5"})
+    toolbarSettings:setVisible(false)
 
-    toolbar:add(btnQuit, "t-l")
-    toolbar:add(btnReset, "t-l")
+    btnSettings = gooi.newImgButton({image = love.graphics.newImage("data/button_settings.png")})
+    btnStart = gooi.newImgButton({image = images.btnStart})
+
+    toolbar:add(btnSettings, "t-l")
     toolbar:add(btnStart, "t-r")
-    toolbar:add(btnPause, "t-r")
 
-    btnPause:setVisible(false)
-
-    grid = gooi.newPanel({x = 0, y = 80, w = 800, h = 400, layout = "grid 8x2"})
+    grid = gooi.newPanel({x = 0, y = 160, w = 800, h = 320, layout = "grid 8x2"})
     grid:setRowspan(1, 1, 4):setRowspan(1, 2, 4)
 
     gooi.setStyle(styles["big"])
@@ -133,6 +132,19 @@ function love.load()
     timer2 = gooi.newLabel({text = "0:00"}):center():fg(colors["white"]):setOpaque(false)
     total1 = gooi.newLabel({text = "0:00"}):center():fg(colors["red"]):setOpaque(false)
     total2 = gooi.newLabel({text = "0:00"}):center():fg(colors["blue"]):setOpaque(false)
+
+    btnRedPlayer = gooi.newButton({text = ""}):center():fg(colors["red"]):setOpaque(true):bg(colors["red"])
+    btnBluePlayer = gooi.newButton({text = ""}):center():fg(colors["blue"]):setOpaque(true):bg(colors["blue"])
+    toolbarChoosePlayer:add(btnRedPlayer, "1,2")
+    toolbarChoosePlayer:add(btnBluePlayer, "1,3")
+
+    btnQuit = gooi.newButton({text = "Quit"}):center():danger()
+    btnReset = gooi.newButton({text = "Reset"}):center():danger()
+    btnCancel = gooi.newButton({text = "Cancel"}):center():success()
+    toolbarSettings:add(btnQuit, "1,2")
+    toolbarSettings:add(btnReset, "1,3")
+    toolbarSettings:add(btnCancel, "1,4")
+
     gooi.setStyle({font = gooi.defaultFont})
 
     grid:add(counter1)
@@ -142,84 +154,68 @@ function love.load()
     grid:add(total1, "7,1")
     grid:add(total2, "7,2")
 
+    btnCancel:onRelease(
+        function()
+            toolbarSettings:setVisible(false)
+            showUI(true)
+        end
+    )
     btnQuit:onRelease(
         function()
-            showUI(false)
-
-            gooi.confirm({
-                text = "Sure?",
-                ok = function()
-                    quit()
-                end,
-                cancel = function()
-                    showUI(true)
-                end
-            })
+            quit()
         end
     )
     btnReset:onRelease(
         function()
-            showUI(false)
-
-            gooi.confirm({
-                text = "Sure?",
-                ok = function()
-                    CounterState.status = COUNTER_OFF
-                    CounterState.player = nil
-                    Players.Red:reset()
-                    Players.Blue:reset()
-                    timer1:fg(colors["white"])
-                    timer2:fg(colors["white"])
-                    showUI(true)
-                    btnStart:setVisible(true)
-                    btnPause:setVisible(false)
-                end,
-                cancel = function()
-                    showUI(true)
-                end
-            })
+            CounterState.status = COUNTER_OFF
+            CounterState.player = nil
+            Players.Red:reset()
+            Players.Blue:reset()
+            timer1:fg(colors["white"])
+            timer2:fg(colors["white"])
+            toolbarSettings:setVisible(false)
+            showUI(true)
         end
     )
-    btnPause:onRelease(
+    btnRedPlayer:onRelease(
         function()
-            if CounterState.status == COUNTER_ON then
-                CounterState.status = COUNTER_PAUSED
-                btnStart:setVisible(true)
-                btnPause:setVisible(false)
-            end
+            CounterState.status = COUNTER_ON
+            switchPlayer(Players.Red)
+            CounterState.player:reset()
+            CounterState.player:inc()
+            toolbarChoosePlayer:setVisible(false)
+            showUI(true)
+        end
+    )
+    btnBluePlayer:onRelease(
+        function()
+            CounterState.status = COUNTER_ON
+            switchPlayer(Players.Blue)
+            CounterState.player:reset()
+            CounterState.player:inc()
+            toolbarChoosePlayer:setVisible(false)
+            showUI(true)
+        end
+    )
+    btnSettings:onRelease(
+        function()
+            showUI(false)
+            toolbarSettings:setVisible(true)
         end
     )
     btnStart:onRelease(
         function()
-            if CounterState.status == COUNTER_PAUSED then
+            if CounterState.status == COUNTER_ON then
+                CounterState.status = COUNTER_PAUSED
+                btnStart.image = images.btnStart
+            elseif CounterState.status == COUNTER_PAUSED then
                 CounterState.status = COUNTER_ON
-                btnStart:setVisible(false)
-                btnPause:setVisible(true)
+                btnStart.image = images.btnPause
             elseif CounterState.status == COUNTER_OFF then
-                btnStart:setVisible(false)
-                btnPause:setVisible(true)
+                btnStart.image = images.btnPause
 
                 showUI(false)
-
-                gooi.confirm({
-                    text = "Who starts?",
-                    cancel = function()
-                        CounterState.status = COUNTER_ON
-                        switchPlayer(Players.Red)
-                        CounterState.player:reset()
-                        CounterState.player:inc()
-                        showUI(true)
-                    end,
-                    ok = function()
-                        CounterState.status = COUNTER_ON
-                        switchPlayer(Players.Blue)
-                        CounterState.player:reset()
-                        CounterState.player:inc()
-                        showUI(true)
-                    end,
-                    cancelText = "red",
-                    okText = "blue"
-                })
+                toolbarChoosePlayer:setVisible(true)
             end
         end
     )

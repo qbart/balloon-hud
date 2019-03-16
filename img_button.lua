@@ -15,6 +15,7 @@ function gooi.newImgButton(params)
     )
 
     b = component.new("img_button", x, y, w, h, params.group)
+    b = gooi.setStyleComp(b)
     b.opaque = false
     b.image = params.image
 
@@ -29,7 +30,7 @@ function gooi.newImgButton(params)
     end
 
     function b:drawSpecifics(fg)
-        love.graphics.setColor(fg)
+        -- love.graphics.setColor(fg)
         love.graphics.draw(self.image, self.x, self.y)
     end
     function b:left()
