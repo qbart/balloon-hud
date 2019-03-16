@@ -7,6 +7,15 @@ Player = {
     totalTime = 0
 }
 
+COUNTER_OFF = 0
+COUNTER_ON = 1
+COUNTER_PAUSED = 2
+
+CounterState = {
+    status = COUNTER_OFF,
+    player = nil
+}
+
 function Player:new(o)
     o = o or {}
     setmetatable(o, self)
@@ -24,6 +33,10 @@ function Player:inc()
     self.counter = self.counter + 1
 end
 
+function Player:resetCurretTime()
+    self.currentTime = 0
+end
+
 function Player:addTime(dt)
     self.currentTime = self.currentTime + dt
     self.totalTime = self.totalTime + dt
@@ -38,13 +51,17 @@ end
 
 function switchPlayer(player)
     if player == Players.Red then
-        Players.Active = Players.Red
+        CounterState.player = Players.Red
         timer1:fg(colors["green"])
         timer2:fg(colors["white"])
+        CounterState.player:inc()
+        CounterState.player:resetCurretTime()
     elseif player == Players.Blue then
-        Players.Active = Players.Blue
+        CounterState.player = Players.Blue
         timer2:fg(colors["green"])
         timer1:fg(colors["white"])
+        CounterState.player:inc()
+        CounterState.player:resetCurretTime()
     end
 end
 
@@ -53,7 +70,6 @@ function love.load()
     Players = {}
     Players.Red = Player:new()
     Players.Blue = Player:new()
-    Players.Active = Players.Red
 
     love.window.setMode(800, 480, {
         borderless = true,
@@ -76,22 +92,44 @@ function love.load()
         red = "#e84a99",
         green = "#7fe84a",
         white = "#ffffff",
-        bg = "#747d47"
+        bg = "#747d47",
+        warn = "#e8ac4a",
+        danger = "#e84a4a",
+        success = "#52b63a",
     }
 
     gooi.desktopMode()
     gooi.shadow()
 
-    grid = gooi.newPanel({x = 0, y = 0, w = 800, h = 480, layout = "grid 8x2"})
-    grid
-        :setRowspan(1, 1, 4)
-        :setRowspan(1, 2, 4)
+    toolbar = gooi.newPanel({x = 0, y = 0, w = 800, h = 80, layout = "game"})
+
+
+    btnReset = gooi.newButton({
+        text = "Reset",
+        x = 0,
+        y = 0,
+        w = 100,
+        h = 40
+    }):bg(colors["danger"])
+    btnSubmit = gooi.newButton({
+        text = "Start",
+        x = 0,
+        y = 0,
+        w = 100,
+        h = 40
+    }):bg(colors["success"])
+
+    toolbar:add(btnReset, "t-l")
+    toolbar:add(btnSubmit, "t-r")
+
+    grid = gooi.newPanel({x = 0, y = 80, w = 800, h = 400, layout = "grid 8x2"})
+    grid:setRowspan(1, 1, 4):setRowspan(1, 2, 4)
 
     gooi.setStyle(styles["big"])
-    counter1 = gooi.newLabel({text = "0"}):center():fg(colors["red"])
-    counter2 = gooi.newLabel({text = "0"}):center():fg(colors["blue"])
+    counter1 = gooi.newButton({text = "0"}):center():bg({0.15, 0.15, 0.15}):fg(colors["red"])
+    counter2 = gooi.newButton({text = "0"}):center():bg({0.15, 0.15, 0.15}):fg(colors["blue"])
     gooi.setStyle(styles["small"])
-    timer1 = gooi.newLabel({text = "0:00"}):center():fg(colors["green"])
+    timer1 = gooi.newLabel({text = "0:00"}):center():fg(colors["white"])
     timer2 = gooi.newLabel({text = "0:00"}):center():fg(colors["white"])
     total1 = gooi.newLabel({text = "0:00"}):center():fg(colors["red"])
     total2 = gooi.newLabel({text = "0:00"}):center():fg(colors["blue"])
@@ -103,26 +141,93 @@ function love.load()
     grid:add(total1, "7,1")
     grid:add(total2, "7,2")
 
-    timerSwitch = 0
-    Players.Red:inc()
+    btnReset:onRelease(
+        function()
+            gooi.confirm({
+                text = "Sure?",
+                ok = function()
+                    CounterState.status = COUNTER_OFF
+                    btnSubmit:setText("Start")
+                    btnSubmit:bg(colors["success"])
+                    CounterState.player = nil
+                    Players.Red:reset()
+                    Players.Blue:reset()
+                    timer1:fg(colors["white"])
+                    timer2:fg(colors["white"])
+                end
+            })
+        end
+    )
+    btnSubmit:onRelease(
+        function()
+            if CounterState.status == COUNTER_ON then
+                CounterState.status = COUNTER_PAUSED
+                btnSubmit:setText("Resume")
+                btnSubmit:bg(colors["warn"])
+            elseif CounterState.status == COUNTER_PAUSED then
+                CounterState.status = COUNTER_ON
+                btnSubmit:setText("Pause")
+                btnSubmit:bg(colors["warn"])
+            elseif CounterState.status == COUNTER_OFF then
+                btnSubmit:setText("Pause")
+                btnSubmit:bg(colors["warn"])
+                gooi.confirm({
+                    text = "Who starts?",
+                    cancel = function()
+                        CounterState.status = COUNTER_ON
+                        switchPlayer(Players.Red)
+                        CounterState.player:reset()
+                        CounterState.player:inc()
+                    end,
+                    ok = function()
+                        CounterState.status = COUNTER_ON
+                        switchPlayer(Players.Blue)
+                        CounterState.player:reset()
+                        CounterState.player:inc()
+                    end,
+                    cancelText = "red",
+                    okText = "blue"
+                })
+            end
+        end
+    )
+    counter1:onRelease(
+        function()
+            if CounterState.status == COUNTER_ON then
+                if CounterState.player == Players.Red then
+                    switchPlayer(Players.Blue)
+                end
+            end
+        end
+    )
+    counter2:onRelease(
+        function()
+            if CounterState.status == COUNTER_ON then
+                if CounterState.player == Players.Blue then
+                    switchPlayer(Players.Red)
+                end
+            end
+        end
+    )
 end
 
 function love.update(dt)
     gooi.update(dt)
 
-    timerSwitch = timerSwitch + dt
-    Players.Active:addTime(dt)
-
-    if math.floor(timerSwitch) >= 5 then
-        timerSwitch = 0
-        if Players.Active == Players.Red then
-            switchPlayer(Players.Blue)
-            Players.Blue:inc()
-        else
-            switchPlayer(Players.Red)
-            Players.Red:inc()
-        end
+    if CounterState.status == COUNTER_ON then
+        CounterState.player:addTime(dt)
     end
+
+    -- if math.floor(timerSwitch) >= 5 then
+    --     timerSwitch = 0
+    --     if Players.Active == Players.Red then
+    --         switchPlayer(Players.Blue)
+    --         Players.Blue:inc()
+    --     else
+    --         switchPlayer(Players.Red)
+    --         Players.Red:inc()
+    --     end
+    -- end
 
     -- update RED labels
     timer1:setText(formatTime(Players.Red.currentTime))
