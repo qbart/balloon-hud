@@ -8,6 +8,8 @@ Player = {
     totalTime = 0
 }
 
+Session = {}
+
 COUNTER_OFF = 0
 COUNTER_ON = 1
 COUNTER_PAUSED = 2
@@ -17,8 +19,70 @@ CounterState = {
     player = nil
 }
 
+function log(s)
+    file = io.open("hud.log", "a")
+    file:write(s)
+    file:write("\n")
+    file:close()
+end
+
+function len(t)
+    local count = 0
+    for _ in pairs(t) do count = count + 1 end
+    return count
+end
+
+function Session:new()
+    local o = {}
+    o.entries = {}
+    o.id = tostring(os.time())
+    o.started_at = nil
+    o.player = 0
+    setmetatable(o, self)
+    self.__index = self
+    return o
+end
+
+function Session:start(p)
+    time = os.time()
+    self.started_at = os.time()
+    self.player = p
+end
+
+function Session:stop()
+    if self.player > 0 then
+        self.entries[len(self.entries)] = {
+            player = self.player,
+            start = self.started_at,
+            stop = os.time()
+        }
+    end
+end
+
+function Session:next()
+    self.entries = {}
+    self.id = tostring(os.time())
+end
+
+function Session:save()
+    os.execute("mkdir -p db/")
+
+    if len(self.entries) > 0 then
+        local file = io.open("db/" .. self.id .. ".csv", "w")
+        for k,v in pairs(self.entries) do
+            file:write(v["player"])
+            file:write(",")
+            file:write(v["start"])
+            file:write(",")
+            file:write(v["stop"])
+            file:write("\n")
+        end
+        file:close()
+    end
+end
+
 function Player:new(o)
-    o = o or {}
+    local o = o or {}
     setmetatable(o, self)
     self.__index = self
     return o
@@ -52,16 +116,14 @@ end
 
 function switchPlayer(player)
     if player == Players.Red then
-        CounterState.player = Players.Red
+        CounterState.player = player
         timer1:fg(colors["green"])
         timer2:fg(colors["white"])
-        CounterState.player:inc()
         CounterState.player:resetCurretTime()
     elseif player == Players.Blue then
-        CounterState.player = Players.Blue
+        CounterState.player = player
         timer2:fg(colors["green"])
         timer1:fg(colors["white"])
-        CounterState.player:inc()
         CounterState.player:resetCurretTime()
     end
 end
@@ -84,6 +146,7 @@ function love.load()
     Players = {}
     Players.Red = Player:new()
     Players.Blue = Player:new()
+    session = Session:new()
 
     love.graphics.setBackgroundColor(0.15, 0.15, 0.15)
     love.graphics.setDefaultFilter("nearest", "nearest", 0)
@@ -175,6 +238,7 @@ function love.load()
             timer2:fg(colors["white"])
             toolbarSettings:setVisible(false)
             showUI(true)
+            session = Session:new()
         end
     )
     btnRedPlayer:onRelease(
@@ -182,9 +246,9 @@ function love.load()
             CounterState.status = COUNTER_ON
             switchPlayer(Players.Red)
             CounterState.player:reset()
-            CounterState.player:inc()
             toolbarChoosePlayer:setVisible(false)
             showUI(true)
+            session:start(1)
         end
     )
     btnBluePlayer:onRelease(
@@ -192,9 +256,9 @@ function love.load()
             CounterState.status = COUNTER_ON
             switchPlayer(Players.Blue)
             CounterState.player:reset()
-            CounterState.player:inc()
             toolbarChoosePlayer:setVisible(false)
             showUI(true)
+            session:start(2)
         end
     )
     btnSettings:onRelease(
@@ -206,12 +270,19 @@ function love.load()
     btnStart:onRelease(
         function()
             if CounterState.status == COUNTER_ON then
+                -- click pause
                 CounterState.status = COUNTER_PAUSED
                 btnStart.image = images.btnStart
+                session:save()
+                session:next()
+                Players.Red:reset()
+                Players.Blue:reset()
             elseif CounterState.status == COUNTER_PAUSED then
+                -- click resume
                 CounterState.status = COUNTER_ON
                 btnStart.image = images.btnPause
             elseif CounterState.status == COUNTER_OFF then
+                -- click start
                 btnStart.image = images.btnPause
 
                 showUI(false)
@@ -223,7 +294,10 @@ function love.load()
         function()
             if CounterState.status == COUNTER_ON then
                 if CounterState.player == Players.Red then
+                    CounterState.player:inc()
                     switchPlayer(Players.Blue)
+                    session:stop()
+                    session:start(2)
                 end
             end
         end
@@ -232,7 +306,10 @@ function love.load()
         function()
             if CounterState.status == COUNTER_ON then
                 if CounterState.player == Players.Blue then
+                    CounterState.player:inc()
                     switchPlayer(Players.Red)
+                    session:stop()
+                    session:start(1)
                 end
             end
         end
@@ -263,7 +340,8 @@ function love.draw()
 
     love.graphics.setFont(font)
     love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.print("FPS: "..love.timer.getFPS(), 8, 460)
+    love.graphics.print("FPS: " .. love.timer.getFPS(), 8, 440)
+    love.graphics.print("session: ".. session.id .. " (db:" .. len(session.entries) .. ")", 8, 460)
 end
 
 function love.touchreleased(id, x, y, dx, dy, pressure) gooi.released() end
@@ -284,5 +362,6 @@ function love.keyreleased(key, scancode)
 end
 
 function quit()
+    session:save()
     love.event.quit()
 end
